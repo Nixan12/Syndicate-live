@@ -52,7 +52,7 @@ const TEAMS = {
   SE: [['Malmö','IFK Göteborg'],['AIK','Djurgården']],
 };
 
-let mockMatches = [];l
+let mockMatches = [];
 let matchCounter = 1;
 
 function r(min, max, d=1) { return parseFloat((Math.random()*(max-min)+min).toFixed(d)); }
