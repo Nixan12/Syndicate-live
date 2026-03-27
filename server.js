@@ -108,24 +108,33 @@ function tickMocks() {
 
 function calcSignalScore(m) {
   var score = 0;
-  var xgT = (m.xgHome||0)+(m.xgAway||0);
-  var xgD = Math.abs((m.xgHome||0)-(m.xgAway||0));
   var sot = m.shotsOnTarget||0;
-  var da = m.dangerousAttacks||0;
+  var tot = m.totalShots||0;
   var pos = m.possession||50;
   var min = m.minute||0;
   var cor = m.cornerKicks||0;
+  var ratio = tot > 0 ? sot/tot : 0;
 
-  if (xgT>=1.2) score+=25; else if (xgT>=0.7) score+=15; else if (xgT>=0.4) score+=7;
-  if (xgD>=0.5) score+=10;
-  if (sot>=5) score+=20; else if (sot>=3) score+=12; else if (sot>=1) score+=5;
-  if (da>=15) score+=15; else if (da>=9) score+=9; else if (da>=5) score+=4;
-  if (pos>=65||pos<=35) score+=8;
-  if (min>=28&&min<=42) score+=15; else if (min>=20&&min<=27) score+=7;
-  if (cor>=5) score+=7; else if (cor>=3) score+=3;
+  // Skudd paa maal
+  if (sot>=4) score+=25; else if (sot>=2) score+=12; else if (sot>=1) score+=5;
 
-  var s = Math.min(score, 100);
-  return { score: s, tier: s>=70?'STERKT':s>=45?'MODERAT':'LAVT' };
+  // Totale skudd
+  if (tot>=8) score+=15; else if (tot>=5) score+=8;
+
+  // Skudd-ratio (kvalitet)
+  if (ratio>=0.5 && sot>=2) score+=10;
+
+  // Possession dominans
+  if (pos>=65||pos<=35) score+=10;
+
+  // Cornere
+  if (cor>=5) score+=12; else if (cor>=3) score+=6;
+
+  // Tidsvindu
+  if (min>=28&&min<=42) score+=18; else if (min>=20&&min<=27) score+=8;
+
+  var s = Math.min(score, 90);
+  return { score: s, tier: s>=65?'STERKT':s>=40?'MODERAT':'LAVT' };
 }
 
 var wsClients = new Set();

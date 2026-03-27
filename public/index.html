@@ -92,7 +92,7 @@ body::before {
 .team-name { font-family: var(--display); font-weight: 700; font-size: 17px; letter-spacing: 0.03em; flex: 1; }
 .team-name.away { text-align: right; }
 .score { font-family: var(--mono); font-size: 22px; color: var(--text); padding: 0 16px; }
-.metrics { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-bottom: 10px; }
+.metrics { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; margin-bottom: 10px; }
 .metric { background: rgba(0,0,0,0.3); border: 1px solid var(--border); padding: 5px 6px; text-align: center; }
 .metric-label { font-family: var(--mono); font-size: 8px; color: var(--muted); letter-spacing: 0.08em; margin-bottom: 2px; }
 .metric-value { font-family: var(--mono); font-size: 12px; color: var(--text); }
@@ -305,12 +305,7 @@ function renderMatches() {
     const minCls = m.minute >= 28 && m.minute <= 42 ? (score >= 70 ? 'prime' : 'hot') : '';
     const color = score >= 70 ? 'var(--green)' : score >= 45 ? 'var(--amber)' : 'var(--muted)';
 
-    const xgT = m.xgHome !== null && m.xgAway !== null
-      ? (m.xgHome + m.xgAway).toFixed(2)
-      : '—';
-    const sot = m.shotsOnTarget ?? '—';
-    const da = m.dangerousAttacks ?? '—';
-    const poss = m.possession !== null ? m.possession + '%' : '—';
+    // stats handled inline in metrics
     const isLogged = logs.some(l => l.matchId === m.id && l.result === null);
 
     return `<div class="match-card ${cardCls}">
@@ -324,10 +319,11 @@ function renderMatches() {
         <span class="team-name away">${m.awayTeam}</span>
       </div>
       <div class="metrics">
-        <div class="metric"><div class="metric-label">xG tot</div><div class="metric-value ${xgT !== '—' && parseFloat(xgT) > 0.7 ? 'high' : xgT !== '—' && parseFloat(xgT) > 0.4 ? 'med' : ''}">${xgT}</div></div>
-        <div class="metric"><div class="metric-label">Skudd på mål</div><div class="metric-value ${sot !== '—' && sot >= 4 ? 'high' : sot !== '—' && sot >= 2 ? 'med' : ''}">${sot}</div></div>
-        <div class="metric"><div class="metric-label">Farlige angrep</div><div class="metric-value ${da !== '—' && da >= 12 ? 'high' : da !== '—' && da >= 7 ? 'med' : ''}">${da}</div></div>
-        <div class="metric"><div class="metric-label">Possession</div><div class="metric-value">${poss}</div></div>
+        <div class="metric"><div class="metric-label">Skudd m</div><div class="metric-value ${m.shotsOnTarget >= 4 ? 'high' : m.shotsOnTarget >= 2 ? 'med' : ''}">${m.shotsOnTarget ?? '—'}</div></div>
+        <div class="metric"><div class="metric-label">Totalt</div><div class="metric-value ${m.totalShots >= 8 ? 'high' : m.totalShots >= 5 ? 'med' : ''}">${m.totalShots ?? '—'}</div></div>
+        <div class="metric"><div class="metric-label">Ratio</div><div class="metric-value ${m.totalShots > 0 && m.shotsOnTarget/m.totalShots >= 0.5 ? 'high' : ''}">${m.totalShots > 0 ? Math.round(m.shotsOnTarget/m.totalShots*100) + '%' : '—'}</div></div>
+        <div class="metric"><div class="metric-label">Poss</div><div class="metric-value ${m.possession >= 65 || m.possession <= 35 ? 'med' : ''}">${m.possession ? m.possession + '%' : '—'}</div></div>
+        <div class="metric"><div class="metric-label">Cornere</div><div class="metric-value ${m.cornerKicks >= 5 ? 'high' : m.cornerKicks >= 3 ? 'med' : ''}">${m.cornerKicks ?? '—'}</div></div>
         <div class="metric"><div class="metric-label">Odds HT</div><div class="metric-value ${m.odds ? 'high' : ''}">${m.odds ? m.odds.toFixed(2) : '—'}</div></div>
         <div class="metric"><div class="metric-label">Score</div><div class="metric-value" style="color:${color}">${score}</div></div>
       </div>
