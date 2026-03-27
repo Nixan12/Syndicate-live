@@ -261,8 +261,15 @@ function fetchStats(fixtureId) {
 
 function fetchOdds(fixtureId) {
   return apiGet('/odds/live?fixture=' + fixtureId).then(function(data) {
-    if (!data || !data[0]) return null;
+    if (!data || data.length === 0) {
+      console.log('[ODDS] Ingen data for kamp ' + fixtureId);
+      return null;
+    }
     var bookmakers = data[0].bookmakers || [];
+    if (bookmakers.length === 0) {
+      console.log('[ODDS] Ingen bookmakers for kamp ' + fixtureId);
+      return null;
+    }
     for (var b=0; b<bookmakers.length; b++) {
       var bets = bookmakers[b].bets || [];
       for (var i=0; i<bets.length; i++) {
@@ -271,14 +278,20 @@ function fetchOdds(fixtureId) {
           var values = bet.values || [];
           for (var v=0; v<values.length; v++) {
             if (values[v].value === 'Over' && String(values[v].handicap) === '0.5') {
-              return parseFloat(values[v].odd) || null;
+              var odd = parseFloat(values[v].odd) || null;
+              console.log('[ODDS] Kamp ' + fixtureId + ' Over 0.5 HT: ' + odd);
+              return odd;
             }
           }
         }
       }
+      console.log('[ODDS] Kamp ' + fixtureId + ' - markeder: ' + bets.map(function(b) { return b.name; }).join(', ').slice(0, 80));
     }
     return null;
-  }).catch(function() { return null; });
+  }).catch(function(err) {
+    console.log('[ODDS] Feil for kamp ' + fixtureId + ': ' + err.message);
+    return null;
+  });
 }
 
 function fetchEvents(fixtureId) {
