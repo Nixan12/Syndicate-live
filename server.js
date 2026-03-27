@@ -225,7 +225,13 @@ function sleep(ms) {
 
 function fetchStats(fixtureId) {
   return apiGet('/fixtures/statistics?fixture=' + fixtureId).then(function(data) {
+    if (!data || data.length === 0) {
+      console.log('[STATS] Ingen data for kamp ' + fixtureId);
+      return { shotsOnTarget: null, possession: null, cornerKicks: null, totalShots: null };
+    }
     var homStats = (data[0] && data[0].statistics) || [];
+    var types = homStats.map(function(s) { return s.type; }).join(', ');
+    console.log('[STATS] Kamp ' + fixtureId + ' (' + homStats.length + ' stats): ' + types.slice(0, 80));
     function getStat(type) {
       for (var i=0; i<homStats.length; i++) {
         if (homStats[i].type === type) return homStats[i].value;
@@ -238,7 +244,8 @@ function fetchStats(fixtureId) {
       cornerKicks: getStat('Corner Kicks'),
       totalShots: getStat('Total Shots'),
     };
-  }).catch(function() {
+  }).catch(function(err) {
+    console.log('[STATS] Feil for kamp ' + fixtureId + ': ' + err.message);
     return { shotsOnTarget: null, possession: null, cornerKicks: null, totalShots: null };
   });
 }
