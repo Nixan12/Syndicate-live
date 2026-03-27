@@ -193,15 +193,16 @@ function onWsMessage(socket, msg) {
     signalLog.push(entry);
     saveLog();
     broadcast({ type: 'LOG_UPDATE', data: signalLog });
+    console.log('[LOG] ' + entry.home + ' vs ' + entry.away + ' @ ' + (entry.odds || '?'));
   }
 }
 
-function apiGet(path) {
+function apiGet(apiPath) {
   return new Promise(function(resolve, reject) {
     if (!API_KEY) return reject(new Error('API_FOOTBALL_KEY mangler'));
     var req = https.get({
       hostname: 'v3.football.api-sports.io',
-      path: path,
+      path: apiPath,
       headers: { 'x-apisports-key': API_KEY },
       timeout: 8000,
     }, function(res) {
@@ -250,10 +251,10 @@ function fetchOdds(fixtureId) {
       var bets = bookmakers[b].bets || [];
       for (var i=0; i<bets.length; i++) {
         var bet = bets[i];
-        if (bet.name && bet.name.toLowerCase().indexOf('goals over/under first half') !== -1) {
+        if (bet.name && bet.name.toLowerCase().indexOf('first half') !== -1) {
           var values = bet.values || [];
           for (var v=0; v<values.length; v++) {
-            if (values[v].value === 'Over' && values[v].handicap === '0.5') {
+            if (values[v].value === 'Over' && String(values[v].handicap) === '0.5') {
               return parseFloat(values[v].odd) || null;
             }
           }
@@ -262,6 +263,93 @@ function fetchOdds(fixtureId) {
     }
     return null;
   }).catch(function() { return null; });
+}
+
+function fetchEvents(fixtureId) {
+  return apiGet('/fixtures/events?fixture=' + fixtureId).then(function(data) {
+    return data || [];
+  }).catch(function() { return []; });
+}
+
+function resolveSignal(signal, events) {
+  var goalBeforeHT = false;
+  for (var i=0; i<events.length; i++) {
+    var ev = events[i];
+    var isGoal = ev.type === 'Goal';
+    var isOwnGoal = ev.detail === 'Own Goal';
+    var minute = ev.time && ev.time.elapsed ? ev.time.elapsed : 99;
+    var extra = ev.time && ev.time.extra ? ev.time.extra : 0;
+    var effectiveMinute = minute + (extra || 0);
+    if (isGoal && !isOwnGoal && effectiveMinute <= 45) {
+      goalBeforeHT = true;
+      break;
+    }
+  }
+
+  if (goalBeforeHT) {
+    signal.result = 'win';
+    signal.gain = signal.odds ? parseFloat(((signal.odds - 1) * signal.stake).toFixed(2)) : signal.stake;
+    signal.resolvedAt = new Date().toISOString();
+    signal.resolvedReason = 'Mal registrert for pause';
+    console.log('[RESOLVE] VINN: ' + signal.home + ' vs ' + signal.away + ' +' + signal.gain);
+    return true;
+  }
+  return false;
+}
+
+async function checkPendingSignals() {
+  var pending = signalLog.filter(function(s) { return s.result === null && s.matchId; });
+  if (pending.length === 0) return;
+
+  console.log('[CHECK] Sjekker ' + pending.length + ' aktive signaler...');
+  var changed = false;
+
+  for (var i=0; i<pending.length; i++) {
+    var signal = pending[i];
+    try {
+      var events = await fetchEvents(signal.matchId);
+      await sleep(150);
+
+      var fixtureData = await apiGet('/fixtures?id=' + signal.matchId);
+      await sleep(150);
+
+      if (fixtureData && fixtureData[0]) {
+        var fixture = fixtureData[0];
+        var status = fixture.fixture && fixture.fixture.status ? fixture.fixture.status.short : '';
+        var htScore = fixture.score && fixture.score.halftime;
+        var htGoals = htScore ? (htScore.home || 0) + (htScore.away || 0) : 0;
+
+        var isHT = status === 'HT' || status === '2H' || status === 'ET' || status === 'FT';
+
+        if (isHT) {
+          if (htGoals > 0 || resolveSignal(signal, events)) {
+            if (htGoals > 0 && signal.result === null) {
+              signal.result = 'win';
+              signal.gain = signal.odds ? parseFloat(((signal.odds - 1) * signal.stake).toFixed(2)) : signal.stake;
+              signal.resolvedAt = new Date().toISOString();
+              signal.resolvedReason = 'Mal i forste omgang';
+              console.log('[RESOLVE] VINN: ' + signal.home + ' vs ' + signal.away);
+            }
+            changed = true;
+          } else if (signal.result === null) {
+            signal.result = 'loss';
+            signal.gain = -signal.stake;
+            signal.resolvedAt = new Date().toISOString();
+            signal.resolvedReason = '0-0 ved pause';
+            console.log('[RESOLVE] TAP: ' + signal.home + ' vs ' + signal.away);
+            changed = true;
+          }
+        }
+      }
+    } catch(err) {
+      console.log('[CHECK] Feil for ' + signal.matchId + ': ' + err.message);
+    }
+  }
+
+  if (changed) {
+    saveLog();
+    broadcast({ type: 'LOG_UPDATE', data: signalLog });
+  }
 }
 
 async function fetchLiveMatches() {
@@ -273,17 +361,15 @@ async function fetchLiveMatches() {
     return home === 0 && away === 0 && min >= 1;
   });
 
-  console.log('[POLL] ' + fixtures.length + ' live kamper, ' + candidates.length + ' er 0-0');
+  console.log('[POLL] ' + fixtures.length + ' live, ' + candidates.length + ' er 0-0');
 
   var results = [];
   for (var i=0; i<candidates.length; i++) {
     var f = candidates[i];
     var id = f.fixture.id;
-    var statsPromise = fetchStats(id);
-    var oddsPromise = fetchOdds(id);
-    var stats = await statsPromise;
-    var odds = await oddsPromise;
-    await sleep(100);
+    var stats = await fetchStats(id);
+    var odds = await fetchOdds(id);
+    await sleep(150);
 
     results.push({
       id: String(id),
@@ -323,6 +409,46 @@ async function poll() {
     .sort(function(a, b) { return b.signalScore.score - a.signalScore.score; });
 
   broadcast({ type: 'MATCHES', data: scored, timestamp: Date.now() });
+
+  autoLogSignals(scored);
+
+  await checkPendingSignals();
+}
+
+function autoLogSignals(matches) {
+  var AUTO_THRESHOLD = 70;
+  var loggedIds = {};
+  signalLog.forEach(function(s) { loggedIds[s.matchId] = true; });
+
+  matches.forEach(function(m) {
+    if (loggedIds[m.id]) return;
+    if (!m.signalScore || m.signalScore.score < AUTO_THRESHOLD) return;
+    if (m.minute < 28 || m.minute > 42) return;
+
+    var entry = {
+      id: m.id + '-' + Date.now(),
+      matchId: m.id,
+      home: m.homeTeam,
+      away: m.awayTeam,
+      league: m.leagueName,
+      minute: m.minute,
+      score: m.signalScore.score,
+      odds: m.odds || null,
+      xgTotal: m.xgHome !== null && m.xgAway !== null ? m.xgHome + m.xgAway : null,
+      shotsOnTarget: m.shotsOnTarget || null,
+      loggedAt: new Date().toISOString(),
+      auto: true,
+      result: null,
+      gain: null,
+      stake: 100,
+    };
+
+    signalLog.push(entry);
+    loggedIds[m.id] = true;
+    saveLog();
+    broadcast({ type: 'LOG_UPDATE', data: signalLog });
+    console.log('[AUTO] Signal logget: ' + entry.home + ' vs ' + entry.away + ' score=' + entry.score + ' min=' + entry.minute);
+  });
 }
 
 var server = http.createServer(function(req, res) {
