@@ -232,18 +232,18 @@ function fetchSofascore() {
         try {
           const events = JSON.parse(body)?.events ?? [];
           resolve(events.map(e => ({
-            id: String(e.id),
-            homeTeam: e.homeTeam?.name ?? '?',
-            awayTeam: e.awayTeam?.name ?? '?',
-            homeScore: e.homeScore?.current ?? 0,
-            awayScore: e.awayScore?.current ?? 0,
-            minute: e.time?.played ?? e.time?.minute ?? 0
-            leagueName: e.tournament?.name ?? '',
-            countryCode: e.tournament?.category?.alpha2 ?? '',
-            xgHome: null, xgAway: null,
-            shotsOnTarget: null, dangerousAttacks: null,
-            possession: null, cornerKicks: null,
-          })));
+  id: String(e.id),
+  homeTeam: e.homeTeam?.name ?? '?',
+  awayTeam: e.awayTeam?.name ?? '?',
+  homeScore: e.homeScore?.current ?? 0,
+  awayScore: e.awayScore?.current ?? 0,
+  minute: e.time?.played ?? e.time?.minute ?? 0,
+  leagueName: e.tournament?.name ?? '',
+  countryCode: e.tournament?.category?.alpha2 ?? '',
+  xgHome: null, xgAway: null,
+  shotsOnTarget: null, dangerousAttacks: null,
+  possession: null, cornerKicks: null,
+})));
         } catch(e) { reject(e); }
       });
     });
