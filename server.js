@@ -374,7 +374,7 @@ async function fetchLiveMatches() {
     var home = f.goals && f.goals.home !== null ? f.goals.home : 0;
     var away = f.goals && f.goals.away !== null ? f.goals.away : 0;
     var min = f.fixture && f.fixture.status ? f.fixture.status.elapsed || 0 : 0;
-    return home === 0 && away === 0 && min >= 1;
+    return home === 0 && away === 0 && min >= 25 && min <= 44;
   });
 
   console.log('[POLL] ' + fixtures.length + ' live, ' + candidates.length + ' er 0-0');
