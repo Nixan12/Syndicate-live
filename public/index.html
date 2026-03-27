@@ -175,7 +175,7 @@ body::before {
     </div>
     <div>
       <div class="topbar-stat-label">Papir P&L</div>
-      <div class="topbar-stat-value pos" id="statPnl">â¬0</div>
+      <div class="topbar-stat-value pos" id="statPnl">€0</div>
     </div>
   </div>
 </div>
@@ -183,18 +183,18 @@ body::before {
 <div class="filterbar">
   <span class="filter-label">FILTER:</span>
   <button class="filter-btn active" onclick="setFilter('all',this)">Alle</button>
-  <button class="filter-btn" onclick="setFilter('signal',this)">Signal ð</button>
+  <button class="filter-btn" onclick="setFilter('signal',this)">Signal 🔔</button>
   <button class="filter-btn" onclick="setFilter('prime',this)">28-42 min</button>
 </div>
 
 <div class="main">
   <div class="matches-panel">
     <div class="panel-header">
-      <span class="panel-title">Live Kamper â 0:0</span>
+      <span class="panel-title">Live kamper — 0-0</span>
       <span class="match-count" id="matchLabel">0 kamper</span>
     </div>
     <div id="matchList">
-      <div class="empty-state"><p>// Kobler til backend...<br>Start server.js og last siden pÃ¥ nytt</p></div>
+      <div class="empty-state"><p>// Kobler til backend...<br>Start server.js og last siden på nytt</p></div>
     </div>
   </div>
 
@@ -211,10 +211,10 @@ body::before {
     <div class="stats-footer">
       <div class="stats-grid">
         <div class="stat-box"><div class="stat-box-label">Logget</div><div class="stat-box-value amber" id="sLogged">0</div></div>
-        <div class="stat-box"><div class="stat-box-label">Hit %</div><div class="stat-box-value green" id="sHit">â</div></div>
-        <div class="stat-box"><div class="stat-box-label">P&L</div><div class="stat-box-value green" id="sPnl">â¬0</div></div>
+        <div class="stat-box"><div class="stat-box-label">Hit %</div><div class="stat-box-value green" id="sHit">—</div></div>
+        <div class="stat-box"><div class="stat-box-label">P&L</div><div class="stat-box-value green" id="sPnl">€0</div></div>
       </div>
-      <div class="footnote">// Papir-innsats: â¬100 per signal<br>// Data: Sofascore live API</div>
+      <div class="footnote">// Papir-innsats: €100 per signal<br>// Data: Sofascore live API</div>
     </div>
   </div>
 </div>
@@ -222,14 +222,14 @@ body::before {
 <div class="statusbar">
   <div class="status-item"><div class="sdot" id="wsDot" style="background:var(--amber)"></div><span id="wsStatus">WebSocket: kobler til</span></div>
   <div class="status-item"><div class="sdot green"></div>Filter: aktiv</div>
-  <div class="status-item" id="lastUpdate"><div class="sdot amber"></div>Sist oppdatert: â</div>
+  <div class="status-item" id="lastUpdate"><div class="sdot amber"></div>Sist oppdatert: —</div>
 </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-// ââ STATE âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── STATE ─────────────────────────────────────────────────────────────────────
 let matches = [];
 let logs = [];
 let skipped = new Set();
@@ -237,7 +237,7 @@ let filter = 'all';
 let ws = null;
 let paperPnl = 0;
 
-// ââ WEBSOCKET âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── WEBSOCKET ─────────────────────────────────────────────────────────────────
 function connect() {
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   ws = new WebSocket(`${protocol}//${location.host}`);
@@ -282,7 +282,7 @@ function setWsStatus(connected) {
   document.getElementById('liveLabel').textContent = connected ? 'SOFASCORE LIVE' : 'FRAKOBLET';
 }
 
-// ââ RENDER MATCHES ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── RENDER MATCHES ────────────────────────────────────────────────────────────
 function renderMatches() {
   let list = matches.filter(m => !skipped.has(m.id));
 
@@ -294,7 +294,7 @@ function renderMatches() {
 
   if (list.length === 0) {
     document.getElementById('matchList').innerHTML =
-      '<div class="empty-state"><p>// Ingen 0-0 kamper i vinduet akkurat nÃ¥<br>PrÃ¸v "Alle" filteret</p></div>';
+      '<div class="empty-state"><p>// Ingen 0-0 kamper i vinduet akkurat nå<br>Prøv "Alle" filteret</p></div>';
     return;
   }
 
@@ -307,28 +307,29 @@ function renderMatches() {
 
     const xgT = m.xgHome !== null && m.xgAway !== null
       ? (m.xgHome + m.xgAway).toFixed(2)
-      : 'â';
-    const sot = m.shotsOnTarget ?? 'â';
-    const da = m.dangerousAttacks ?? 'â';
-    const poss = m.possession !== null ? m.possession + '%' : 'â';
+      : '—';
+    const sot = m.shotsOnTarget ?? '—';
+    const da = m.dangerousAttacks ?? '—';
+    const poss = m.possession !== null ? m.possession + '%' : '—';
     const isLogged = logs.some(l => l.matchId === m.id && l.result === null);
 
     return `<div class="match-card ${cardCls}">
       <div class="match-top">
-        <span class="match-league">${m.countryCode ? m.countryCode + ' Â· ' : ''}${m.leagueName}</span>
+        <span class="match-league">${m.countryCode ? m.countryCode + ' · ' : ''}${m.leagueName}</span>
         <span class="match-min-badge ${minCls}">${m.minute}'</span>
       </div>
       <div class="match-teams">
         <span class="team-name">${m.homeTeam}</span>
-        <span class="score">0 â 0</span>
+        <span class="score">0 — 0</span>
         <span class="team-name away">${m.awayTeam}</span>
       </div>
       <div class="metrics">
-        <div class="metric"><div class="metric-label">xG tot</div><div class="metric-value ${xgT !== 'â' && parseFloat(xgT) > 0.7 ? 'high' : xgT !== 'â' && parseFloat(xgT) > 0.4 ? 'med' : ''}">${xgT}</div></div>
-        <div class="metric"><div class="metric-label">Skudd m</div><div class="metric-value ${sot !== 'â' && sot >= 4 ? 'high' : sot !== 'â' && sot >= 2 ? 'med' : ''}">${sot}</div></div>
-        <div class="metric"><div class="metric-label">D.Att</div><div class="metric-value ${da !== 'â' && da >= 12 ? 'high' : da !== 'â' && da >= 7 ? 'med' : ''}">${da}</div></div>
-        <div class="metric"><div class="metric-label">Poss</div><div class="metric-value">${poss}</div></div>
-        <div class="metric"><div class="metric-label">Signal</div><div class="metric-value" style="color:${color}">${score}</div></div>
+        <div class="metric"><div class="metric-label">xG tot</div><div class="metric-value ${xgT !== '—' && parseFloat(xgT) > 0.7 ? 'high' : xgT !== '—' && parseFloat(xgT) > 0.4 ? 'med' : ''}">${xgT}</div></div>
+        <div class="metric"><div class="metric-label">Skudd på mål</div><div class="metric-value ${sot !== '—' && sot >= 4 ? 'high' : sot !== '—' && sot >= 2 ? 'med' : ''}">${sot}</div></div>
+        <div class="metric"><div class="metric-label">Farlige angrep</div><div class="metric-value ${da !== '—' && da >= 12 ? 'high' : da !== '—' && da >= 7 ? 'med' : ''}">${da}</div></div>
+        <div class="metric"><div class="metric-label">Possession</div><div class="metric-value">${poss}</div></div>
+        <div class="metric"><div class="metric-label">Odds HT</div><div class="metric-value ${m.odds ? 'high' : ''}">${m.odds ? m.odds.toFixed(2) : '—'}</div></div>
+        <div class="metric"><div class="metric-label">Score</div><div class="metric-value" style="color:${color}">${score}</div></div>
       </div>
       <div class="signal-row">
         <span class="signal-bar-label">SCORE</span>
@@ -338,38 +339,38 @@ function renderMatches() {
       ${score >= 45 && !isLogged ? `<div class="match-actions">
         <button class="btn btn-log" onclick="logSignal('${m.id}')">+ LOG SIGNAL</button>
         <button class="btn btn-skip" onclick="skipMatch('${m.id}')">SKIP</button>
-      </div>` : isLogged ? `<div class="match-actions"><button class="btn btn-log" disabled>â LOGGET</button></div>` : ''}
+      </div>` : isLogged ? `<div class="match-actions"><button class="btn btn-log" disabled>✓ LOGGET</button></div>` : ''}
     </div>`;
   }).join('');
 }
 
-// ââ RENDER LOG ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── RENDER LOG ────────────────────────────────────────────────────────────────
 function renderLog() {
   const resolved = logs.filter(l => l.result);
   const wins = resolved.filter(l => l.result === 'win');
   paperPnl = resolved.reduce((s, l) => s + (l.gain ?? 0), 0);
-  const hitRate = resolved.length > 0 ? Math.round(wins.length / resolved.length * 100) + '%' : 'â';
+  const hitRate = resolved.length > 0 ? Math.round(wins.length / resolved.length * 100) + '%' : '—';
 
   document.getElementById('logLabel').textContent = `${logs.length} loggede`;
   document.getElementById('statSignals').textContent = logs.length;
   document.getElementById('sLogged').textContent = logs.length;
   document.getElementById('sHit').textContent = hitRate;
-  document.getElementById('sPnl').textContent = `${paperPnl >= 0 ? '+' : ''}â¬${paperPnl.toFixed(0)}`;
+  document.getElementById('sPnl').textContent = `${paperPnl >= 0 ? '+' : ''}€${paperPnl.toFixed(0)}`;
   document.getElementById('sPnl').className = `stat-box-value ${paperPnl >= 0 ? 'green' : 'red'}`;
-  document.getElementById('statPnl').textContent = `${paperPnl >= 0 ? '+' : ''}â¬${paperPnl.toFixed(0)}`;
+  document.getElementById('statPnl').textContent = `${paperPnl >= 0 ? '+' : ''}€${paperPnl.toFixed(0)}`;
   document.getElementById('statPnl').className = `topbar-stat-value ${paperPnl >= 0 ? 'pos' : 'neg'}`;
 
   if (logs.length === 0) {
-    document.getElementById('logList').innerHTML = '<div class="empty-state"><p>// Ingen loggede signaler ennÃ¥</p></div>';
+    document.getElementById('logList').innerHTML = '<div class="empty-state"><p>// Ingen loggede signaler ennå</p></div>';
     return;
   }
 
   document.getElementById('logList').innerHTML = [...logs].reverse().map(l => {
     const resultTag = l.result === 'win'
-      ? `<span class="ltag win">â +â¬${l.gain?.toFixed(0)}</span>`
+      ? `<span class="ltag win">✓ +€${l.gain?.toFixed(0)}</span>`
       : l.result === 'loss'
-      ? `<span class="ltag loss">â -â¬100</span>`
-      : `<span class="ltag">â³ pÃ¥gÃ¥r</span>`;
+      ? `<span class="ltag loss">✗ -€100</span>`
+      : `<span class="ltag">⏳ pågår</span>`;
     const sigCls = l.score >= 70 ? 'green' : 'amber';
     return `<div class="log-entry">
       <div class="log-entry-top">
@@ -380,14 +381,14 @@ function renderLog() {
         <span class="ltag">${l.league}</span>
         <span class="ltag">${l.minute}'</span>
         <span class="ltag ${sigCls}">${l.score}/100</span>
-        <span class="ltag">${l.odds?.toFixed(2) ?? 'â'}</span>
+        <span class="ltag">${l.odds?.toFixed(2) ?? '—'}</span>
         ${resultTag}
       </div>
     </div>`;
   }).join('');
 }
 
-// ââ ACTIONS âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── ACTIONS ───────────────────────────────────────────────────────────────────
 async function logSignal(matchId) {
   const m = matches.find(x => x.id === matchId);
   if (!m) return;
@@ -402,7 +403,7 @@ async function logSignal(matchId) {
       league: m.leagueName,
       minute: m.minute,
       score: m.signalScore?.score ?? 0,
-      odds: null, // Legg til odds-integrasjon her
+      odds: m.odds ?? null,
       xgTotal: m.xgHome !== null ? m.xgHome + m.xgAway : null,
       shotsOnTarget: m.shotsOnTarget,
       dangerousAttacks: m.dangerousAttacks,
@@ -425,7 +426,7 @@ function setFilter(f, btn) {
   renderMatches();
 }
 
-// ââ UTILS âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── UTILS ─────────────────────────────────────────────────────────────────────
 function timeStr(d) { return d.toTimeString().slice(0,8); }
 
 function showToast(msg) {
@@ -437,7 +438,7 @@ function showToast(msg) {
 
 setInterval(() => { document.getElementById('clock').textContent = timeStr(new Date()); }, 1000);
 
-// ââ INIT ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── INIT ──────────────────────────────────────────────────────────────────────
 connect();
 </script>
 </body>

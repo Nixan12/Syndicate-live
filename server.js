@@ -66,6 +66,7 @@ function generateMocks() {
         xgHome: r(0.05, 0.95), xgAway: r(0.05, 0.75),
         shotsOnTarget: ri(1, 6), dangerousAttacks: ri(3, 18),
         possession: ri(35, 65), cornerKicks: ri(0, 7),
+        odds: r(1.4, 3.2),
         isMock: true,
       });
     }
@@ -82,6 +83,7 @@ function tickMocks() {
     m.dangerousAttacks += ri(0, 2);
     m.possession = Math.max(30, Math.min(70, m.possession + ri(-2, 2)));
     if (Math.random() > 0.85) m.cornerKicks++;
+    m.odds = Math.max(1.1, Math.min(5.0, m.odds + r(-0.05, 0.05)));
   });
   if (Math.random() > 0.5 && mockMatches.length < 16) {
     var league = LEAGUES[ri(0, LEAGUES.length-1)];
@@ -97,6 +99,7 @@ function tickMocks() {
         xgHome: r(0, 0.3), xgAway: r(0, 0.25),
         shotsOnTarget: ri(0, 2), dangerousAttacks: ri(1, 5),
         possession: ri(40, 60), cornerKicks: ri(0, 2),
+        odds: r(1.6, 3.0),
         isMock: true,
       });
     }
@@ -130,26 +133,20 @@ var wsClients = new Set();
 function handleUpgrade(req, socket) {
   var key = req.headers['sec-websocket-key'];
   if (!key) { socket.destroy(); return; }
-
   var accept = crypto.createHash('sha1')
     .update(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11')
     .digest('base64');
-
   socket.write(
     'HTTP/1.1 101 Switching Protocols\r\n' +
     'Upgrade: websocket\r\n' +
     'Connection: Upgrade\r\n' +
     'Sec-WebSocket-Accept: ' + accept + '\r\n\r\n'
   );
-
   wsClients.add(socket);
   sendWs(socket, { type: 'LOG_UPDATE', data: signalLog });
-
+  console.log('[WS] Klient tilkoblet. Totalt: ' + wsClients.size);
   socket.on('data', function(buf) {
-    try {
-      var msg = decodeFrame(buf);
-      if (msg) onWsMessage(socket, msg);
-    } catch(e) {}
+    try { var msg = decodeFrame(buf); if (msg) onWsMessage(socket, msg); } catch(e) {}
   });
   socket.on('close', function() { wsClients.delete(socket); });
   socket.on('error', function() { wsClients.delete(socket); });
@@ -199,13 +196,12 @@ function onWsMessage(socket, msg) {
   }
 }
 
-function fetchLiveMatches() {
+function apiGet(path) {
   return new Promise(function(resolve, reject) {
     if (!API_KEY) return reject(new Error('API_FOOTBALL_KEY mangler'));
-
     var req = https.get({
       hostname: 'v3.football.api-sports.io',
-      path: '/fixtures?live=all',
+      path: path,
       headers: { 'x-apisports-key': API_KEY },
       timeout: 8000,
     }, function(res) {
@@ -213,34 +209,8 @@ function fetchLiveMatches() {
       var body = '';
       res.on('data', function(c) { body += c; });
       res.on('end', function() {
-        try {
-          var fixtures = JSON.parse(body).response || [];
-          resolve(fixtures.map(function(f) {
-            var homStats = (f.statistics && f.statistics[0] && f.statistics[0].statistics) || [];
-            function getStat(type) {
-              for (var i=0; i<homStats.length; i++) {
-                if (homStats[i].type === type) return homStats[i].value;
-              }
-              return null;
-            }
-            return {
-              id: String(f.fixture.id),
-              homeTeam: f.teams.home.name,
-              awayTeam: f.teams.away.name,
-              homeScore: f.goals.home || 0,
-              awayScore: f.goals.away || 0,
-              minute: f.fixture.status.elapsed || 0,
-              leagueName: f.league.name,
-              countryCode: f.league.country,
-              xgHome: null,
-              xgAway: null,
-              shotsOnTarget: getStat('Shots on Goal'),
-              dangerousAttacks: null,
-              possession: parseInt(getStat('Ball Possession') || '0') || null,
-              cornerKicks: getStat('Corner Kicks'),
-            };
-          }));
-        } catch(e) { reject(e); }
+        try { resolve(JSON.parse(body).response || []); }
+        catch(e) { reject(e); }
       });
     });
     req.on('error', reject);
@@ -248,11 +218,99 @@ function fetchLiveMatches() {
   });
 }
 
+function sleep(ms) {
+  return new Promise(function(resolve) { setTimeout(resolve, ms); });
+}
+
+function fetchStats(fixtureId) {
+  return apiGet('/fixtures/statistics?fixture=' + fixtureId).then(function(data) {
+    var homStats = (data[0] && data[0].statistics) || [];
+    function getStat(type) {
+      for (var i=0; i<homStats.length; i++) {
+        if (homStats[i].type === type) return homStats[i].value;
+      }
+      return null;
+    }
+    return {
+      shotsOnTarget: getStat('Shots on Goal'),
+      possession: parseInt(getStat('Ball Possession') || '0') || null,
+      cornerKicks: getStat('Corner Kicks'),
+      totalShots: getStat('Total Shots'),
+    };
+  }).catch(function() {
+    return { shotsOnTarget: null, possession: null, cornerKicks: null, totalShots: null };
+  });
+}
+
+function fetchOdds(fixtureId) {
+  return apiGet('/odds/live?fixture=' + fixtureId).then(function(data) {
+    if (!data || !data[0]) return null;
+    var bookmakers = data[0].bookmakers || [];
+    for (var b=0; b<bookmakers.length; b++) {
+      var bets = bookmakers[b].bets || [];
+      for (var i=0; i<bets.length; i++) {
+        var bet = bets[i];
+        if (bet.name && bet.name.toLowerCase().indexOf('goals over/under first half') !== -1) {
+          var values = bet.values || [];
+          for (var v=0; v<values.length; v++) {
+            if (values[v].value === 'Over' && values[v].handicap === '0.5') {
+              return parseFloat(values[v].odd) || null;
+            }
+          }
+        }
+      }
+    }
+    return null;
+  }).catch(function() { return null; });
+}
+
+async function fetchLiveMatches() {
+  var fixtures = await apiGet('/fixtures?live=all');
+  var candidates = fixtures.filter(function(f) {
+    var home = f.goals && f.goals.home !== null ? f.goals.home : 0;
+    var away = f.goals && f.goals.away !== null ? f.goals.away : 0;
+    var min = f.fixture && f.fixture.status ? f.fixture.status.elapsed || 0 : 0;
+    return home === 0 && away === 0 && min >= 1;
+  });
+
+  console.log('[POLL] ' + fixtures.length + ' live kamper, ' + candidates.length + ' er 0-0');
+
+  var results = [];
+  for (var i=0; i<candidates.length; i++) {
+    var f = candidates[i];
+    var id = f.fixture.id;
+    var statsPromise = fetchStats(id);
+    var oddsPromise = fetchOdds(id);
+    var stats = await statsPromise;
+    var odds = await oddsPromise;
+    await sleep(100);
+
+    results.push({
+      id: String(id),
+      homeTeam: f.teams.home.name,
+      awayTeam: f.teams.away.name,
+      homeScore: f.goals.home || 0,
+      awayScore: f.goals.away || 0,
+      minute: f.fixture.status.elapsed || 0,
+      leagueName: f.league.name,
+      countryCode: f.league.country,
+      xgHome: null,
+      xgAway: null,
+      shotsOnTarget: stats.shotsOnTarget,
+      totalShots: stats.totalShots,
+      dangerousAttacks: null,
+      possession: stats.possession,
+      cornerKicks: stats.cornerKicks,
+      odds: odds,
+    });
+  }
+  return results;
+}
+
 async function poll() {
   var matches;
   try {
     matches = await fetchLiveMatches();
-    console.log('[POLL] API-Football: ' + matches.length + ' live kamper');
   } catch(err) {
     tickMocks();
     matches = mockMatches;
@@ -272,7 +330,6 @@ var server = http.createServer(function(req, res) {
   var filePath = path.join(__dirname, 'public', urlPath);
   var ext = path.extname(filePath);
   var mimes = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css' };
-
   if (req.method === 'GET' && fs.existsSync(filePath)) {
     res.writeHead(200, { 'Content-Type': mimes[ext] || 'text/plain' });
     fs.createReadStream(filePath).pipe(res);
@@ -293,5 +350,5 @@ server.listen(PORT, function() {
   console.log('SYNDICATE kjorer pa port ' + PORT);
   console.log('API-Football: ' + (API_KEY ? 'konfigurert' : 'MANGLER NOKKEL'));
   poll();
-  setInterval(poll, 15000);
+  setInterval(poll, 30000);
 });
