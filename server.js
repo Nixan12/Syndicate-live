@@ -15,7 +15,6 @@ let signalLog = [];
 try {
   if (fs.existsSync(LOG_FILE)) {
     signalLog = JSON.parse(fs.readFileSync(LOG_FILE, 'utf8'));
-    console.log('[LOGGER] Lastet ' + signalLog.length + ' signaler');
   }
 } catch(e) {}
 
@@ -109,7 +108,7 @@ function calcSignalScore(m) {
   var xgT = (m.xgHome||0)+(m.xgAway||0);
   var xgD = Math.abs((m.xgHome||0)-(m.xgAway||0));
   var sot = m.shotsOnTarget||0;
-  var da  = m.dangerousAttacks||0;
+  var da = m.dangerousAttacks||0;
   var pos = m.possession||50;
   var min = m.minute||0;
   var cor = m.cornerKicks||0;
@@ -145,7 +144,6 @@ function handleUpgrade(req, socket) {
 
   wsClients.add(socket);
   sendWs(socket, { type: 'LOG_UPDATE', data: signalLog });
-  console.log('[WS] Klient tilkoblet. Totalt: ' + wsClients.size);
 
   socket.on('data', function(buf) {
     try {
@@ -219,10 +217,12 @@ function fetchLiveMatches() {
           var fixtures = JSON.parse(body).response || [];
           resolve(fixtures.map(function(f) {
             var homStats = (f.statistics && f.statistics[0] && f.statistics[0].statistics) || [];
-            var getStat = function(arr, type) {
-              var found = arr.filter(function(s) { return s.type === type; });
-              return found.length > 0 ? found[0].value : null;
-            };
+            function getStat(type) {
+              for (var i=0; i<homStats.length; i++) {
+                if (homStats[i].type === type) return homStats[i].value;
+              }
+              return null;
+            }
             return {
               id: String(f.fixture.id),
               homeTeam: f.teams.home.name,
@@ -234,10 +234,10 @@ function fetchLiveMatches() {
               countryCode: f.league.country,
               xgHome: null,
               xgAway: null,
-              shotsOnTarget: getStat(homStats, 'Shots on Goal'),
+              shotsOnTarget: getStat('Shots on Goal'),
               dangerousAttacks: null,
-              possession: parseInt(getStat(homStats, 'Ball Possession') || '0') || null,
-              cornerKicks: getStat(homStats, 'Corner Kicks'),
+              possession: parseInt(getStat('Ball Possession') || '0') || null,
+              cornerKicks: getStat('Corner Kicks'),
             };
           }));
         } catch(e) { reject(e); }
@@ -290,11 +290,8 @@ server.on('upgrade', function(req, socket, head) {
 generateMocks();
 
 server.listen(PORT, function() {
-  console.log('');
-  console.log('SYNDICATE // Backend kjorer');
-  console.log('Port: ' + PORT);
+  console.log('SYNDICATE kjorer pa port ' + PORT);
   console.log('API-Football: ' + (API_KEY ? 'konfigurert' : 'MANGLER NOKKEL'));
-  console.log('');
   poll();
   setInterval(poll, 15000);
 });
