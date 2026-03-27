@@ -52,7 +52,7 @@ const TEAMS = {
   SE: [['Malmö','IFK Göteborg'],['AIK','Djurgården']],
 };
 
-let mockMatches = [];
+let mockMatches = [];l
 let matchCounter = 1;
 
 function r(min, max, d=1) { return parseFloat((Math.random()*(max-min)+min).toFixed(d)); }
@@ -237,7 +237,7 @@ function fetchSofascore() {
             awayTeam: e.awayTeam?.name ?? '?',
             homeScore: e.homeScore?.current ?? 0,
             awayScore: e.awayScore?.current ?? 0,
-            minute: e.time?.played ?? 0,
+            minute: e.time?.played ?? e.time?.minute ?? 0
             leagueName: e.tournament?.name ?? '',
             countryCode: e.tournament?.category?.alpha2 ?? '',
             xgHome: null, xgAway: null,
@@ -268,7 +268,7 @@ async function poll() {
   }
 
   const scored = matches
-    .filter(m => m.homeScore === 0 && m.awayScore === 0 && m.minute >= 20 && m.minute <= 44)
+    .filter(m => m.homeScore === 0 && m.awayScore === 0 && m.minute >= 1)
     .map(m => ({ ...m, signalScore: calcSignalScore(m) }))
     .sort((a, b) => b.signalScore.score - a.signalScore.score);
 
